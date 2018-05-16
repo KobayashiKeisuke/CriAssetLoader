@@ -112,6 +112,8 @@ namespace CriPackageManageSystem
 			string outputPath = CriPackageCacheController.GetOutputPath( _cpkName, _versionHashName );
 			// Directory 生成
 			CriPackageCacheController.CreateAssetCacheDir( _cpkName );
+			// 古いバージョンのキャッシュがあれば削除
+			CriPackageCacheController.DeleteTargetOtherVersionPackage( _cpkName, _versionHashName);
 
 			// Download 開始
 			installer.Copy(url, outputPath);

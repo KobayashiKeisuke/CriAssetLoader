@@ -78,6 +78,45 @@ namespace CriPackageManageSystem
 			return File.Exists( path );
 		}
 
+		/// <summary>
+		/// 指定バージョン以外の
+		/// </summary>
+		/// <param name="_packageName"></param>
+		/// <param name="_versionHashName"></param>
+		/// <returns></returns>
+		public static bool DeleteTargetOtherVersionPackage(string _packageName, string _versionHashName )
+		{
+			string dirPath = GetOutputDirPath( _packageName);
+
+			if( string.IsNullOrEmpty(dirPath)  || string.IsNullOrEmpty( _packageName) || string.IsNullOrEmpty( _versionHashName))
+			{
+				return false;
+			}
+			// Dir が無ければ削除も同然
+			if( !Directory.Exists( dirPath ))
+			{
+				return true;
+			}
+
+			// 指定Dirにファイルがなければ、実質削除完了と等価
+			string[] filePaths = Directory.GetFiles( dirPath );
+			if( filePaths == null || filePaths.Length < 1)
+			{
+				return true;
+			}
+
+			// 指定Hash以外のファイルを全削除
+			for (int i = 0; i < filePaths.Length; i++)
+			{
+				if( Path.GetFileName( filePaths[i]) == _versionHashName)
+				{
+					continue;
+				}
+				File.Delete( filePaths[i]);
+			}
+			return true;	
+		}
+
 		#endregion //) ===== STATIC_API =====
 	}
 }
