@@ -77,9 +77,10 @@ namespace CriPackageManageSystem
 		/// Download 実行
 		/// </summary>
 		/// <param name="_cpkName">CPK名</param>
+		/// <param name="_versionHashName">CPKのHash値文字列</param>
 		/// <param name="_onComplete">ダウンロード完了コールバック</param>
 		/// <returns></returns>
-		public IEnumerator DonwloadCPK( string _cpkName, OnCompleteDownload _onComplete )
+		public IEnumerator DonwloadCPK( string _cpkName, string _versionHashName, OnCompleteDownload _onComplete )
 		{
 			string url = CriPackageUtility.GetPackegeURL( _cpkName );
 			// 無効なURL
@@ -92,7 +93,7 @@ namespace CriPackageManageSystem
 				yield break;
 			}
 			// Cache上に存在している
-			if( CriPackageUtility.IsCached( _cpkName ))
+			if( CriPackageCacheController.IsCached( _cpkName, _versionHashName ))
 			{
 				if( _onComplete != null )
 				{
@@ -108,9 +109,9 @@ namespace CriPackageManageSystem
 				installer = GetEmptyInstaller();
 				yield return null;
 			}
-			string outputPath = CriPackageUtility.GetOutputPath( _cpkName );
+			string outputPath = CriPackageCacheController.GetOutputPath( _cpkName, _versionHashName );
 			// Directory 生成
-			CriPackageUtility.CreateAssetCacheDir( _cpkName );
+			CriPackageCacheController.CreateAssetCacheDir( _cpkName );
 
 			// Download 開始
 			installer.Copy(url, outputPath);

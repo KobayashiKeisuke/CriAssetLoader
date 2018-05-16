@@ -71,6 +71,9 @@ namespace CriPackageManageSystem
         //Download Controller
         CriPackageDownloadController m_dlCtrl;
 
+        // Manifest Controller
+        CriPackageManifestController m_manifestCtrl = null;
+
         // Bind List
         Dictionary< string, BinderData > m_bindDict = new Dictionary<string, BinderData>(); // KeyValuePair< cpkName, Data >
         Dictionary<string, BinderData> BindDict{get{return m_bindDict;}}
@@ -91,6 +94,9 @@ namespace CriPackageManageSystem
         {
             m_manager = _manager;
             m_dlCtrl = new CriPackageDownloadController( _concurrency );
+
+            m_manifestCtrl = new CriPackageManifestController();
+
         }
 		#endregion //) ===== INITIALIZE =====
 
@@ -122,6 +128,27 @@ namespace CriPackageManageSystem
 		#region ===== PUBLIC_API =====
 
         /// <summary>
+        /// CPKマニフェストのDownload
+        /// </summary>
+        /// <param name="_manifestName"></param>
+        /// <param name="_manifestVersion"></param>
+        /// <returns></returns>
+        public IEnumerator LoadManifest(string _manifestName, string _manifestVersion )
+        {
+            bool isSucceeded = false;
+            yield return LoadCPK( _manifestName, _manifestVersion, ( bool _isSucceeded, BinderData _data)=>
+            {
+                isSucceeded = _isSucceeded;
+            });
+            
+            if( isSucceeded && m_manifestCtrl != null)
+            {
+                yield return LoadFile( _manifestName, "manifest.csv", m_manifestCtrl.ReadManifestCsv);
+                SetRelease( _manifestName );
+            }
+        }
+
+        /// <summary>
         /// CPK からファイルのロードを行う
         /// </summary>
         /// <param name="_cpkName"></param>
@@ -142,7 +169,7 @@ namespace CriPackageManageSystem
             // Download ~ Bind まで
             bool isSucceededLoadCpk = false;
             BinderData bindedData = null;
-            yield return LoadCPK( _cpkName, ( bool _isSucceeded, BinderData _data)=>{
+            yield return LoadCPK( _cpkName,  ( bool _isSucceeded, BinderData _data)=>{
                 isSucceededLoadCpk = _isSucceeded;
                 bindedData = _data;
             });
@@ -162,47 +189,15 @@ namespace CriPackageManageSystem
         }
 
         /// <summary>
-        /// CPK のDownload~Bind までの処理
-        /// LoadFileの途中処理としての利用や、CueSheet取得用などに用いると思われ
+        /// CPK ファイルのロード窓口
         /// </summary>
         /// <param name="_cpkName"></param>
         /// <param name="_onComplete"></param>
         /// <returns></returns>
         public IEnumerator LoadCPK( string _cpkName, OnCompleteBind _onComplete)
         {
-             /* 
-             * ------------------------------
-             * フロー
-             * 1. Cache に無ければDownload -> Cache に保存
-             * 2. Cache にあるCPKファイルをBind
-             * ------------------------------
-             */
-
-            // Cache上に無い
-			if( !CriPackageUtility.IsCached( _cpkName ))
-			{
-                // Download すべきか、サーバー上のファイルを直接バインドすべきかは要検討
-                yield return　m_dlCtrl.DonwloadCPK( _cpkName, null);
-			}
-
-            // Dictionary未登録であればCache 上にあるCPKファイルをバインド
-            if( !BindDict.ContainsKey(_cpkName))
-            {
-                yield return BindCPK( _cpkName);
-            }
-
-            BinderData data = null;
-            bool ret = BindDict.TryGetValue( _cpkName, out data);
-
-            if( _onComplete != null )
-            {
-                // Load 成功したので参照しているはず
-                if( ret && data != null )
-                {
-                    data.SetReference();
-                }
-                _onComplete.Invoke( ret, data);
-            }
+            string version = GetVersionName( _cpkName );
+            yield return LoadCPK( _cpkName, version, _onComplete );
         }
 
         public bool SetRelease( string _cpkName )
@@ -227,7 +222,7 @@ namespace CriPackageManageSystem
         /// <param name="_cpkName"></param>
         /// <param name="bindId"></param>
         /// <returns></returns>
-        private IEnumerator BindCPK( string _cpkName )
+        private IEnumerator BindCPK( string _cpkName, string _versionHashName )
         {
             uint bindId = 0;
             if( m_manager == null )
@@ -235,7 +230,7 @@ namespace CriPackageManageSystem
                 Debug.LogWarning("Cant Exec Coroutine");
                 yield break;
             }
-            string path = CriPackageUtility.GetOutputPath( _cpkName );
+            string path = CriPackageCacheController.GetOutputPath( _cpkName , _versionHashName);
             CriFsBinder binder = new CriFsBinder();
 
             CriFsBindRequest request = CriFsUtility.BindCpk(binder, path);
@@ -282,9 +277,10 @@ namespace CriPackageManageSystem
             // 待機
 	    	yield return req.WaitForDone(m_manager);
 
-            bool isSucceeded = !string.IsNullOrEmpty( req.error);
+            bool isSucceeded = string.IsNullOrEmpty( req.error);
             if( !isSucceeded)
             {
+                Debug.LogError("[Error]"+req.error);
                 Debug.LogWarning( "Failed to load :"+_fileName);
             }
 
@@ -292,7 +288,62 @@ namespace CriPackageManageSystem
             {
                 _onComplete.Invoke( isSucceeded, req.bytes );
             }
+            req.Dispose();
         }
+
+        /// <summary>
+        /// CPK のDownload~Bind までの処理
+        /// LoadFileの途中処理としての利用や、CueSheet取得用などに用いると思われ
+        /// </summary>
+        /// <param name="_cpkName"></param>
+        /// <param name="_onComplete"></param>
+        /// <returns></returns>
+        private IEnumerator LoadCPK( string _cpkName, string _versionHashName, OnCompleteBind _onComplete)
+        {
+             /* 
+             * ------------------------------
+             * フロー
+             * 1. Cache に無ければDownload -> Cache に保存
+             * 2. Cache にあるCPKファイルをBind
+             * ------------------------------
+             */
+
+            // Cache上に無い
+			if( !CriPackageCacheController.IsCached( _cpkName,_versionHashName ))
+			{
+                // Download すべきか、サーバー上のファイルを直接バインドすべきかは要検討
+                yield return　m_dlCtrl.DonwloadCPK( _cpkName, _versionHashName, null);
+                //TODO: Retry 対応
+			}
+
+            // Dictionary未登録であればCache 上にあるCPKファイルをバインド
+            if( !BindDict.ContainsKey(_cpkName))
+            {
+                yield return BindCPK( _cpkName, _versionHashName);
+            }
+
+            BinderData data = null;
+            bool ret = BindDict.TryGetValue( _cpkName, out data);
+
+            if( _onComplete != null )
+            {
+                // Load 成功したので参照しているはず
+                if( ret && data != null )
+                {
+                    data.SetReference();
+                }
+                _onComplete.Invoke( ret, data);
+            }
+        }
+        
+        //--------------------------------------------
+		// CPK Manifest
+		//--------------------------------------------
+		#region ===== MANIFEST =====
+
+        private string GetVersionName( string _cpkName ){ return m_manifestCtrl == null ? string.Empty : m_manifestCtrl.GetVersionName( _cpkName); }
+
+        #endregion //) ===== MANIFEST =====
     }
 }
 

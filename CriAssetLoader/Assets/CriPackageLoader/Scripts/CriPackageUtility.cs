@@ -42,45 +42,6 @@ namespace CriPackageManageSystem
 			}
 			return string.Format("{0}{1}",HOST,_packageName);
 		}
-		/// <summary>
-		/// 必要に応じてキャッシュ用ディレクトリを作成する
-		/// </summary>
-		/// <param name="_packageName"></param>
-		public static void CreateAssetCacheDir( string _packageName )
-		{
-			string path = GetOutputPath( _packageName);
-			if( string.IsNullOrEmpty( path))
-			{
-				return;
-			}
-			string dirName = System.IO.Path.GetDirectoryName(path);
-			if( !System.IO.Directory.Exists( dirName))
-			{
-				System.IO.Directory.CreateDirectory( dirName );
-			}
-		}
-
-		/// <summary>
-		/// Packageの出力先
-		/// </summary>
-		/// <param name="_packageName"></param>
-		/// <returns></returns>
-		public static string GetOutputPath( string _packageName )
-		{
-			return Path.Combine( AssetCachePath, _packageName);
-		}
-
-		/// <summary>
-		/// CacheDirに存在するかチェック
-		/// TODO: AssetBundle みたいにVersionIDやHash値チェックしたい
-		/// </summary>
-		/// <param name="_packageName"></param>
-		/// <returns></returns>
-		public static bool IsCached( string _packageName)
-		{
-			string path = GetOutputPath( _packageName);
-			return File.Exists( path );
-		}
 	}
 
 }

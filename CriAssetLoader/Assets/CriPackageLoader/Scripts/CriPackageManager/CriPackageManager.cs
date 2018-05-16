@@ -43,6 +43,8 @@ namespace CriPackageManageSystem
 			CriFsWebInstaller.InitializeModule(CriFsWebInstaller.defaultModuleConfig);
 
 			m_loadCtrl = new CriPackageLoadController( this, DOWNLOAD_CONCURRENCY);
+
+			StartCoroutine( m_loadCtrl.LoadManifest("manifest.cpk", "testVer") );
 		}
 		#endregion //) ===== INIT =====
 
