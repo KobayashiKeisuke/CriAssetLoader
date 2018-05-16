@@ -1,0 +1,9 @@
+# 概要
+CRIさん提供のADX2,ファイルマジックPROを用いた時の
+CPKファイルのダウンロードからメモリ上にLoadするところまでの処理を任せるシステムです。
+
+基本的にはCriPackegeManagerに問い合わせればOKなFacadeパターンでの実装になります。
+Utilityクラスに定義しているHOSTの値を適宜書き換えて使ってください
+
+※当然ながらCRIさんのUnityCustomPackageのPluginが入っている前提です
+無いとコンパイルが通らないです
